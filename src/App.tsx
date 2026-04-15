@@ -35,19 +35,43 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [lastSaved, setLastSaved] = useState<number>(Date.now());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
 
-  // Persistence
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [inputValue]);
+
+  // Persistence - Reactive
   useEffect(() => {
     localStorage.setItem('nexus_sessions', JSON.stringify(sessions));
+    setLastSaved(Date.now());
   }, [sessions]);
 
   useEffect(() => {
     localStorage.setItem('nexus_active_session_id', activeSessionId);
   }, [activeSessionId]);
+
+  // Persistence - 30s Heartbeat (Atomic Backup)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      localStorage.setItem('nexus_sessions', JSON.stringify(sessions));
+      localStorage.setItem('nexus_active_session_id', activeSessionId);
+      setLastSaved(Date.now());
+      console.log('Nexus Atomic Backup completed at:', new Date().toLocaleTimeString());
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [sessions, activeSessionId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -85,6 +109,13 @@ export default function App() {
     } else {
       setIsListening(true);
       recognitionRef.current.start();
+    }
+  };
+
+  const stopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsTyping(false);
     }
   };
 
@@ -132,7 +163,7 @@ export default function App() {
         parts: [{ text: m.content }]
       }));
 
-      const stream = generateStreamingResponse(inputValue, history);
+      const stream = generateStreamingResponse(userMessage.content, history);
       let fullContent = '';
 
       for await (const chunk of stream) {
@@ -166,6 +197,13 @@ export default function App() {
     };
     setSessions([newSession, ...sessions]);
     setActiveSessionId(newSession.id);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
@@ -296,19 +334,25 @@ export default function App() {
         </div>
 
         {/* Input Section (Gemini Pro Style) */}
-        <div className="w-full h-[160px] flex justify-center items-center relative">
+        <div className="w-full flex flex-col items-center gap-4 mt-8">
           <div className="w-[800px] group relative">
             <div className="absolute -inset-1.5 bg-gradient-to-r from-[#4285F4]/30 via-[#9B72CB]/30 to-[#D96570]/30 rounded-[30px] blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-1000" />
-            <div className="relative h-[60px] glass-morphism rounded-[28px] flex items-center px-6 justify-between border border-white/10 shadow-2xl backdrop-blur-[50px]">
-              <input
-                type="text"
+            <div className="relative min-h-[60px] glass-morphism rounded-[28px] flex items-end px-6 py-3 justify-between border border-white/10 shadow-2xl backdrop-blur-[50px]">
+              <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                onKeyDown={handleKeyDown}
                 placeholder={isListening ? "Listening..." : "Message Nexus..."}
-                className="flex-1 bg-transparent border-none outline-none text-[16px] text-white/90 placeholder:text-white/20"
+                rows={1}
+                className="flex-1 bg-transparent border-none outline-none text-[16px] text-white/90 placeholder:text-white/20 resize-none py-2 max-h-[200px] overflow-y-auto no-scrollbar"
+                style={{ height: 'auto' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`;
+                }}
               />
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-5 pb-1">
                 <Tooltip text={isListening ? "Stop Listening" : "Start Voice Input"}>
                   <button 
                     onClick={toggleListening}
@@ -336,6 +380,12 @@ export default function App() {
                 </Tooltip>
               </div>
             </div>
+          </div>
+          
+          {/* Auto-save Indicator */}
+          <div className="flex items-center gap-2 text-[10px] text-white/20 uppercase tracking-widest font-medium">
+            <div className="w-1 h-1 rounded-full bg-green-500/50 animate-pulse" />
+            Nexus Atomic Sync: {new Date(lastSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </div>
         </div>
 

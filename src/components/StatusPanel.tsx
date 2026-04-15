@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+
 export function WindowControls() {
   return (
     <div className="flex gap-2 px-4">
@@ -19,6 +21,25 @@ export function StatusPills() {
 }
 
 export default function StatusPanel() {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedTime = time.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit', 
+    hour12: true 
+  });
+
+  const formattedDate = time.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+
   return (
     <>
       <div className="fixed top-0 left-0 right-0 flex justify-between items-center px-6 py-4 bg-gradient-to-b from-black/80 to-transparent z-50">
@@ -29,9 +50,15 @@ export default function StatusPanel() {
             OmniAGI Nexus
           </div>
         </div>
-        <div className="flex items-center gap-4 text-[11px] text-white/40 uppercase tracking-[0.1em]">
-          <span>v1.0.0-infinity</span>
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+        <div className="flex items-center gap-6 text-[11px] text-white/60 font-medium">
+          <div className="flex items-center gap-2 uppercase tracking-[0.1em] text-white/30">
+            <span>v1.0.0-infinity</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-3 border-l border-white/10 pl-6">
+            <span className="opacity-60">{formattedDate}</span>
+            <span className="font-semibold">{formattedTime}</span>
+          </div>
         </div>
       </div>
       <StatusPills />
