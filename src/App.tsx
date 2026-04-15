@@ -14,9 +14,50 @@ export default function App() {
   const [activeSessionId, setActiveSessionId] = useState('1');
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'zh-HK'; // Default to Cantonese for Nexus
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputValue(prev => prev + transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -212,11 +253,16 @@ export default function App() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Message Nexus..."
+                placeholder={isListening ? "Listening..." : "Message Nexus..."}
                 className="flex-1 bg-transparent border-none outline-none text-[16px] text-white/90 placeholder:text-white/20"
               />
               <div className="flex items-center gap-5">
-                <button className="text-white/20 hover:text-white/60 transition-colors">
+                <button 
+                  onClick={toggleListening}
+                  className={`transition-all duration-300 ${
+                    isListening ? 'text-red-500 scale-125 animate-pulse' : 'text-white/20 hover:text-white/60'
+                  }`}
+                >
                   <Mic size={20} />
                 </button>
                 <button 
