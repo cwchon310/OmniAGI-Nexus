@@ -1,9 +1,9 @@
 export function WindowControls() {
   return (
     <div className="flex gap-2 px-4">
-      <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]" />
-      <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]" />
-      <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]" />
+      <div title="Close" className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] cursor-pointer" />
+      <div title="Minimize" className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] cursor-pointer" />
+      <div title="Maximize" className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] cursor-pointer" />
     </div>
   );
 }

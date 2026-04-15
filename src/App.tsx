@@ -7,18 +7,47 @@ import ChatBubble from './components/ChatBubble';
 import StatusPanel from './components/StatusPanel';
 import SpecsPanel from './components/SpecsPanel';
 
+function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
+  return (
+    <div className="group relative flex items-center justify-center">
+      {children}
+      <div className="absolute bottom-full mb-2 hidden group-hover:block z-[100]">
+        <div className="bg-black/80 backdrop-blur-md border border-white/10 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap shadow-xl">
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const [sessions, setSessions] = useState<Session[]>([
-    { id: '1', title: 'Nexus Core Initialization', messages: [], lastUpdated: Date.now() }
-  ]);
-  const [activeSessionId, setActiveSessionId] = useState('1');
+  const [sessions, setSessions] = useState<Session[]>(() => {
+    const saved = localStorage.getItem('nexus_sessions');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', title: 'Nexus Core Initialization', messages: [], lastUpdated: Date.now() }
+    ];
+  });
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    const saved = localStorage.getItem('nexus_active_session_id');
+    return saved || '1';
+  });
   const [inputValue, setInputValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
+
+  // Persistence
+  useEffect(() => {
+    localStorage.setItem('nexus_sessions', JSON.stringify(sessions));
+  }, [sessions]);
+
+  useEffect(() => {
+    localStorage.setItem('nexus_active_session_id', activeSessionId);
+  }, [activeSessionId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -154,27 +183,50 @@ export default function App() {
         
         {/* Session Switcher (macOS Dock Style) */}
         <div className="flex items-center gap-4 mb-12 p-2.5 glass-morphism rounded-[28px] shadow-2xl">
-          <button 
-            onClick={createNewSession}
-            className="flex-shrink-0 w-10 h-10 rounded-[18px] bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all hover:scale-110 active:scale-90 group"
-          >
-            <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
-          </button>
+          <Tooltip text="Create New Session">
+            <button 
+              onClick={createNewSession}
+              className="flex-shrink-0 w-10 h-10 rounded-[18px] bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all hover:scale-110 active:scale-90 group"
+            >
+              <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+            </button>
+          </Tooltip>
           <div className="w-[1px] h-8 bg-white/10 mx-1" />
-          <div className="flex items-center gap-2">
-            {sessions.map(session => (
-              <button
-                key={session.id}
-                onClick={() => setActiveSessionId(session.id)}
-                className={`flex-shrink-0 px-5 py-2.5 rounded-[18px] text-[13px] font-semibold transition-all duration-500 ${
-                  activeSessionId === session.id 
-                    ? 'bg-white text-black scale-105 shadow-[0_10px_30px_rgba(255,255,255,0.2)]' 
-                    : 'text-white/40 hover:text-white/80 hover:bg-white/5'
-                }`}
-              >
-                {session.title}
-              </button>
-            ))}
+          
+          {/* Search Input */}
+          <div className="relative flex items-center">
+            <Search size={14} className="absolute left-3 text-white/20" />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sessions..."
+              className="bg-white/5 border border-white/5 rounded-[14px] pl-9 pr-4 py-1.5 text-[12px] w-[160px] focus:w-[240px] focus:bg-white/10 transition-all outline-none placeholder:text-white/10"
+            />
+          </div>
+
+          <div className="w-[1px] h-8 bg-white/10 mx-1" />
+
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[400px]">
+            {sessions
+              .filter(s => 
+                s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                s.messages.some(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
+              )
+              .map(session => (
+                <Tooltip key={session.id} text={`Switch to ${session.title}`}>
+                  <button
+                    onClick={() => setActiveSessionId(session.id)}
+                    className={`flex-shrink-0 px-5 py-2.5 rounded-[18px] text-[13px] font-semibold transition-all duration-500 whitespace-nowrap ${
+                      activeSessionId === session.id 
+                        ? 'bg-white text-black scale-105 shadow-[0_10px_30px_rgba(255,255,255,0.2)]' 
+                        : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                    }`}
+                  >
+                    {session.title}
+                  </button>
+                </Tooltip>
+              ))}
           </div>
         </div>
 
@@ -257,27 +309,31 @@ export default function App() {
                 className="flex-1 bg-transparent border-none outline-none text-[16px] text-white/90 placeholder:text-white/20"
               />
               <div className="flex items-center gap-5">
-                <button 
-                  onClick={toggleListening}
-                  className={`transition-all duration-300 ${
-                    isListening ? 'text-red-500 scale-125 animate-pulse' : 'text-white/20 hover:text-white/60'
-                  }`}
-                >
-                  <Mic size={20} />
-                </button>
-                <button 
-                  onClick={handleSend}
-                  disabled={!inputValue.trim() || isTyping}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                    inputValue.trim() && !isTyping 
-                      ? 'bg-white text-black scale-105 hover:scale-115 active:scale-90 shadow-xl' 
-                      : 'bg-white/5 text-white/10'
-                  }`}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <path d="M12 1v22M5 8l7-7 7 7"/>
-                  </svg>
-                </button>
+                <Tooltip text={isListening ? "Stop Listening" : "Start Voice Input"}>
+                  <button 
+                    onClick={toggleListening}
+                    className={`transition-all duration-300 ${
+                      isListening ? 'text-red-500 scale-125 animate-pulse' : 'text-white/20 hover:text-white/60'
+                    }`}
+                  >
+                    <Mic size={20} />
+                  </button>
+                </Tooltip>
+                <Tooltip text="Send Message">
+                  <button 
+                    onClick={handleSend}
+                    disabled={!inputValue.trim() || isTyping}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                      inputValue.trim() && !isTyping 
+                        ? 'bg-white text-black scale-105 hover:scale-115 active:scale-90 shadow-xl' 
+                        : 'bg-white/5 text-white/10'
+                    }`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M12 1v22M5 8l7-7 7 7"/>
+                    </svg>
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -285,19 +341,21 @@ export default function App() {
 
         {/* Footer Navigation */}
         <div className="mt-6 flex items-center gap-12 text-white/10">
-          <button className="hover:text-white/50 transition-all hover:scale-110"><MessageSquare size={20} /></button>
-          <button className="hover:text-white/50 transition-all hover:scale-110"><ShieldCheck size={20} /></button>
-          <button className="hover:text-white/50 transition-all hover:scale-110"><Settings size={20} /></button>
+          <Tooltip text="Messages History"><button className="hover:text-white/50 transition-all hover:scale-110"><MessageSquare size={20} /></button></Tooltip>
+          <Tooltip text="Security Status"><button className="hover:text-white/50 transition-all hover:scale-110"><ShieldCheck size={20} /></button></Tooltip>
+          <Tooltip text="System Settings"><button className="hover:text-white/50 transition-all hover:scale-110"><Settings size={20} /></button></Tooltip>
         </div>
       </div>
 
       {/* Floating Anchor (macOS Style) */}
-      <motion.div 
-        drag
-        dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-        dragElastic={0.1}
-        className="fixed bottom-1/2 right-6 w-5 h-5 rounded-full bg-white/20 border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.15)] cursor-grab active:cursor-grabbing z-50 translate-y-1/2 backdrop-blur-md"
-      />
+      <Tooltip text="Drag to reposition anchor">
+        <motion.div 
+          drag
+          dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+          dragElastic={0.1}
+          className="fixed bottom-1/2 right-6 w-5 h-5 rounded-full bg-white/20 border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.15)] cursor-grab active:cursor-grabbing z-50 translate-y-1/2 backdrop-blur-md"
+        />
+      </Tooltip>
     </div>
   );
 }
