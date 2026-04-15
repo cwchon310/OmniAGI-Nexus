@@ -1,0 +1,6 @@
+{
+  "name": "OmniAGI Nexus ∞",
+  "description": "An atomic-precision AGI interface with Nexus Glass UI, featuring macOS-style magic transitions, military-grade security, and Cantonese-optimized language engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["AI Chat", "Multi-Session", "Glass UI"]
+}
