@@ -10,6 +10,7 @@ export type Session = {
   title: string;
   messages: Message[];
   lastUpdated: number;
+  archived?: boolean;
 };
 
 export type AtomicState = {

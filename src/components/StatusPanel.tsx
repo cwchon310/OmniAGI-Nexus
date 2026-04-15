@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
+import { auth, signInWithGoogle, logout } from "../lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { LogIn, LogOut, User as UserIcon } from "lucide-react";
 
 export function WindowControls() {
   return (
@@ -22,10 +25,15 @@ export function StatusPills() {
 
 export default function StatusPanel() {
   const [time, setTime] = useState(new Date());
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => {
+      clearInterval(timer);
+      unsubscribe();
+    };
   }, []);
 
   const formattedTime = time.toLocaleTimeString('en-US', { 
@@ -50,14 +58,43 @@ export default function StatusPanel() {
             OmniAGI Nexus
           </div>
         </div>
-        <div className="flex items-center gap-6 text-[11px] text-white/60 font-medium">
-          <div className="flex items-center gap-2 uppercase tracking-[0.1em] text-white/30">
-            <span>v1.0.0-infinity</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          </div>
-          <div className="flex items-center gap-3 border-l border-white/10 pl-6">
-            <span className="opacity-60">{formattedDate}</span>
-            <span className="font-semibold">{formattedTime}</span>
+        
+        <div className="flex items-center gap-6">
+          {user ? (
+            <div className="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || ''} className="w-5 h-5 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <UserIcon size={14} className="text-white/40" />
+              )}
+              <span className="text-[11px] text-white/80 font-medium">{user.displayName?.split(' ')[0]}</span>
+              <button 
+                onClick={logout}
+                className="text-white/20 hover:text-red-400 transition-colors ml-1"
+                title="Logout"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={signInWithGoogle}
+              className="flex items-center gap-2 bg-white text-black px-4 py-1.5 rounded-full text-[11px] font-bold hover:scale-105 active:scale-95 transition-all shadow-lg"
+            >
+              <LogIn size={14} />
+              Login
+            </button>
+          )}
+
+          <div className="flex items-center gap-6 text-[11px] text-white/60 font-medium">
+            <div className="flex items-center gap-2 uppercase tracking-[0.1em] text-white/30">
+              <span>v1.0.0-infinity</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            </div>
+            <div className="flex items-center gap-3 border-l border-white/10 pl-6">
+              <span className="opacity-60">{formattedDate}</span>
+              <span className="font-semibold">{formattedTime}</span>
+            </div>
           </div>
         </div>
       </div>
