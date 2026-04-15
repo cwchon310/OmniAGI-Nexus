@@ -27,10 +27,10 @@ export function getGemini() {
   return ai;
 }
 
-export async function generateResponse(prompt: string, history: { role: string; parts: { text: string }[] }[]) {
+export async function* generateStreamingResponse(prompt: string, history: { role: string; parts: { text: string }[] }[]) {
   const client = getGemini();
   
-  const response = await client.models.generateContent({
+  const result = await client.models.generateContentStream({
     model: "gemini-3-flash-preview",
     contents: [
       ...history,
@@ -43,5 +43,10 @@ export async function generateResponse(prompt: string, history: { role: string; 
     },
   });
 
-  return response.text || "";
+  for await (const chunk of result) {
+    const text = chunk.text;
+    if (text) {
+      yield text;
+    }
+  }
 }

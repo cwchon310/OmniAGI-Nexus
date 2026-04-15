@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, MessageSquare, Settings, ShieldCheck, Zap, Search, Mic } from 'lucide-react';
 import { Session, Message } from './types';
-import { generateResponse } from './services/geminiService';
+import { generateStreamingResponse } from './services/geminiService';
 import ChatBubble from './components/ChatBubble';
 import StatusPanel from './components/StatusPanel';
 import SpecsPanel from './components/SpecsPanel';
@@ -34,18 +34,25 @@ export default function App() {
       timestamp: Date.now(),
     };
 
-    const updatedSessions = sessions.map(s => {
+    const assistantMessageId = (Date.now() + 1).toString();
+    const initialAssistantMessage: Message = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+    };
+
+    setSessions(prev => prev.map(s => {
       if (s.id === activeSessionId) {
         return {
           ...s,
-          messages: [...s.messages, userMessage],
+          messages: [...s.messages, userMessage, initialAssistantMessage],
           lastUpdated: Date.now(),
         };
       }
       return s;
-    });
+    }));
 
-    setSessions(updatedSessions);
     setInputValue('');
     setIsTyping(true);
 
@@ -55,25 +62,24 @@ export default function App() {
         parts: [{ text: m.content }]
       }));
 
-      const aiResponse = await generateResponse(inputValue, history);
+      const stream = generateStreamingResponse(inputValue, history);
+      let fullContent = '';
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: aiResponse,
-        timestamp: Date.now(),
-      };
-
-      setSessions(prev => prev.map(s => {
-        if (s.id === activeSessionId) {
-          return {
-            ...s,
-            messages: [...s.messages, assistantMessage],
-            lastUpdated: Date.now(),
-          };
-        }
-        return s;
-      }));
+      for await (const chunk of stream) {
+        fullContent += chunk;
+        setSessions(prev => prev.map(s => {
+          if (s.id === activeSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map(m => 
+                m.id === assistantMessageId ? { ...m, content: fullContent } : m
+              ),
+              lastUpdated: Date.now(),
+            };
+          }
+          return s;
+        }));
+      }
     } catch (error) {
       console.error("Failed to generate response:", error);
     } finally {

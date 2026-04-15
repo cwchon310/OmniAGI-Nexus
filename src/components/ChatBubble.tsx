@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Message } from "../types";
 import { Sparkles } from "lucide-react";
+import Markdown from "react-markdown";
 
 interface ChatBubbleProps {
   message: Message;
@@ -17,7 +18,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
       transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-10 group`}
     >
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[80%]`}>
+      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[85%]`}>
         {!isUser && (
           <div className="flex items-center gap-3 mb-3 px-1">
             <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#4285F4] via-[#9B72CB] to-[#D96570] flex items-center justify-center shadow-xl shadow-purple-500/30">
@@ -27,13 +28,13 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
           </div>
         )}
         <div
-          className={`px-6 py-4 rounded-[24px] text-[16px] leading-relaxed transition-all duration-500 ${
+          className={`px-6 py-4 rounded-[24px] text-[16px] leading-relaxed transition-all duration-500 markdown-content ${
             isUser 
               ? 'glass-morphism text-white shadow-2xl shadow-white/5 border-white/10' 
               : 'bg-white/[0.03] text-[#F5F5F7] border border-white/[0.05] hover:bg-white/[0.05]'
           }`}
         >
-          {message.content}
+          <Markdown>{message.content}</Markdown>
         </div>
         {isUser && (
           <span className="text-[10px] text-white/30 mt-3 px-3 uppercase tracking-widest font-medium">Authorized Identity</span>
